@@ -105,6 +105,10 @@ class BaseLogger:
     def log(self, metrics: dict[str, Any], step: int) -> None:
         pass
 
+    def log_config(self, config: dict[str, Any]) -> None:
+        """Log configuration/summary data (e.g., model parameters)."""
+        pass
+
     def close(self) -> None:
         pass
 
@@ -121,6 +125,11 @@ class TensorBoardLogger(BaseLogger):
         for k, v in metrics.items():
             tag = k if self.tag is None else f"{self.tag}/{k}"
             self.writer.add_scalar(tag, v, step)
+
+    def log_config(self, config: dict[str, Any]) -> None:
+        """Log configuration data as text in TensorBoard."""
+        for k, v in config.items():
+            self.writer.add_text(k, str(v))
 
     def close(self) -> None:
         self.writer.close()
@@ -151,6 +160,13 @@ class WandBLogger(BaseLogger):
             for k, v in metrics.items()
         }
         self.wandb.log(wandb_metrics, step=step)
+
+    def log_config(self, config: dict[str, Any]) -> None:
+        """Log configuration data to WandB config and summary."""
+        if self.wandb.run is not None:
+            self.wandb.config.update(config, allow_val_change=True)
+            for k, v in config.items():
+                self.wandb.run.summary[k] = v
 
     def close(self) -> None:
         if self.wandb.run is not None:
@@ -406,6 +422,10 @@ class MetricsProcessor:
         self.data_loading_times.clear()
         self.time_last_log = time.perf_counter()
         self.device_memory_monitor.reset_peak_stats()
+
+    def log_config(self, config: dict[str, Any]) -> None:
+        """Log configuration/summary data (e.g., model parameters)."""
+        self.logger.log_config(config)
 
     def close(self):
         self.logger.close()
